@@ -17,6 +17,9 @@ dependencies:
   - base >= 4.19 && < 5
   - network # establish a simple TCP network
   - bytestring # useful to send bytes over the network
+  - megaparsec >= 9.6.1 && <9.7
+  - ansi-terminal
+
 
 executables:
   codecrafters-http-server-exe:
