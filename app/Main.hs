@@ -63,7 +63,11 @@ main = do
                                     <> "Content-Length: "
                                     <> (show $ BC.length str)
                                     <> "\r\n"
-                                    <> (show str)
+                                    <> BC.unpack str
+                        
+                        BC.putStrLn $ "Sending " <> BC.pack (show $ BC.length str) <> " bytes to " <> BC.pack (show clientAddr) <> "."
+                        setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
+                        BC.putStrLn $ BC.pack (show resp)
                         sendAll clientSocket (BC.pack resp)
                 Nothing -> sendAll clientSocket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
             _ -> sendAll clientSocket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
