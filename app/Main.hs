@@ -62,7 +62,7 @@ main = do
                                     <> "Content-Type: text/plain\r\n"
                                     <> "Content-Length: "
                                     <> (show $ BC.length str)
-                                    <> "\r\n"
+                                    <> "\r\n\r\n"
                                     <> BC.unpack str
                         
                         BC.putStrLn $ "Sending " <> BC.pack (show $ BC.length str) <> " bytes to " <> BC.pack (show clientAddr) <> "."
