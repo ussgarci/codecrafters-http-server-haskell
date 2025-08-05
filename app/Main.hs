@@ -30,9 +30,12 @@ main = do
 
     -- Stream sockets use the Transmission Control Protocol (TCP) for communication.
     serverSocket <- socket (addrFamily $ head addrInfo) Stream defaultProtocol
+    setSocketOption serverSocket ReuseAddr 1
     bind serverSocket $ addrAddress $ head addrInfo
     -- The second argument specifies the maximum number of queued connections and should be at least 1;
     -- the maximum value is system-dependent (usually 5).
+
+
     listen serverSocket 5
 
     -- forever     :: (Applicative f) => f a -> f b
@@ -47,7 +50,8 @@ main = do
         (clientSocket, clientAddr) <- accept serverSocket
 
         request <- recv clientSocket 4096
-        BC.putStrLn $ "Received " <> BC.pack (show (BC.length request)) <> " bytes from " <> BC.pack (show clientAddr) <> "."
+        let requestLength = BC.length request
+        BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
         setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
         BC.putStrLn $ BC.pack (show request)
         setSGR [Reset]
@@ -56,8 +60,5 @@ main = do
         case target of
             "/" -> sendAll clientSocket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
             _ -> sendAll clientSocket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
-
-        -- let resp = "HTTP/1.1 200 OK\r\n\r\n"
-        -- sendAll clientSocket (BC.pack resp)
 
         close clientSocket
