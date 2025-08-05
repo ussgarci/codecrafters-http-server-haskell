@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import qualified Data.ByteString.Char8 as BC
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
@@ -28,14 +28,12 @@ main = do
     -- getAddrInfo :: GetAddrInfo t => Maybe AddrInfo -> Maybe HostName -> Maybe ServiceName -> IO (t AddrInfo)
     addrInfo <- getAddrInfo Nothing (Just host) (Just port)
 
-    -- Stream sockets use the Transmission Control Protocol (TCP) for communication.
     serverSocket <- socket (addrFamily $ head addrInfo) Stream defaultProtocol
-    setSocketOption serverSocket ReuseAddr 1
+    setSocketOption serverSocket ReuseAddr 1 -- avoid TIME_WAIT
     bind serverSocket $ addrAddress $ head addrInfo
+
     -- The second argument specifies the maximum number of queued connections and should be at least 1;
     -- the maximum value is system-dependent (usually 5).
-
-
     listen serverSocket 5
 
     -- forever     :: (Applicative f) => f a -> f b
@@ -45,20 +43,29 @@ main = do
     --    a' = a *> (a *> (a *> a'))
     --    a' = a *> (a *> (a *> ... )))
     forever $ do
-        -- The return value is a pair (conn, address) where conn is a new socket object usable to send and
-        -- receive data on the connection, and address is the address bound to the socket on the other end of the connection.
         (clientSocket, clientAddr) <- accept serverSocket
-
         request <- recv clientSocket 4096
         let requestLength = BC.length request
+
         BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
         setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
         BC.putStrLn $ BC.pack (show request)
         setSGR [Reset]
 
-        let (method : target : version : xs) = BC.words request
-        case target of
-            "/" -> sendAll clientSocket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
+        case BC.words request of
+            ("GET" : "/" : _) -> sendAll clientSocket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
+            ("GET" : path : _) -> case BC.stripPrefix "/echo/" path of
+                (Just str) ->
+                    do
+                        let resp =
+                                "HTTP/1.1 200 OK\r\n"
+                                    <> "Content-Type: text/plain\r\n"
+                                    <> "Content-Length: "
+                                    <> (show $ BC.length str)
+                                    <> "\r\n"
+                                    <> (show str)
+                        sendAll clientSocket (BC.pack resp)
+                Nothing -> sendAll clientSocket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
             _ -> sendAll clientSocket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
 
         close clientSocket
