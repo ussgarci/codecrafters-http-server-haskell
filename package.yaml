@@ -18,6 +18,7 @@ dependencies:
   - network # establish a simple TCP network
   - bytestring # useful to send bytes over the network
   - megaparsec >= 9.6.1 && <9.7
+  - containers >=0.6.7 && <0.7
   - ansi-terminal
 
 
