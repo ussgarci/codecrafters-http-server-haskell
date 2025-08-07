@@ -2,6 +2,7 @@
 
 module Main (main) where
 
+import Control.Concurrent (forkIO)
 import Control.Monad (forever)
 import qualified Data.ByteString.Char8 as BC
 import qualified Network.Socket as NS
@@ -68,24 +69,20 @@ main = do
     -- the maximum value is system-dependent (usually 5).
     NS.listen serverSocket 5
 
-    -- forever     :: (Applicative f) => f a -> f b
-    -- forever a   = let a' = a *> a' in a'
-    --    a' = a *> a'
-    --    a' = a *> (a *> a')
-    --    a' = a *> (a *> (a *> a'))
-    --    a' = a *> (a *> (a *> ... )))
     forever $ do
         (clientSocket, clientAddr) <- NS.accept serverSocket
-        request <- recv clientSocket 4096
-        let requestLength = BC.length request
+        
+        forkIO $ do
+            request <- recv clientSocket 4096
+            let requestLength = BC.length request
 
-        BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
-        setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
-        BC.putStrLn $ BC.pack (show request)
-        setSGR [Reset]
+            BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
+            setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
+            BC.putStrLn $ BC.pack (show request)
+            setSGR [Reset]
 
-        case MP.runParser parseHttpRequest "" request of
-            Right httpRequest -> route clientSocket httpRequest
-            Left errorBundle -> print errorBundle
+            case MP.runParser parseHttpRequest "" request of
+                Right httpRequest -> route clientSocket httpRequest
+                Left errorBundle -> print errorBundle
 
-        NS.close clientSocket
+            NS.close clientSocket
