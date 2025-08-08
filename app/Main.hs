@@ -3,9 +3,8 @@
 module Main (main) where
 
 import Control.Concurrent (forkIO)
-import Control.Monad (forever, when)
+import Control.Monad (forever)
 import qualified Data.ByteString.Char8 as BC
-import Data.Maybe (isNothing)
 import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
 import Parser.HttpRequest
@@ -19,6 +18,16 @@ validEncodings :: [BC.ByteString]
 validEncodings = ["gzip"]
 
 route :: NS.Socket -> HttpRequest -> Maybe String -> IO ()
+route socket (HttpRequest{_method = "POST", _target = path, _headers = hs, _body=(Just fileContents)}) fp
+    | BC.isPrefixOf "/files/" path = do
+        case BC.stripPrefix "/files/" path of
+            Just fileName -> case fp of
+                Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+                Just pathStr -> do
+                    let filePath = pathStr ++ BC.unpack fileName
+                    writeFile filePath $ BC.unpack fileContents
+                    sendAll socket (BC.pack "HTTP/1.1 201 Created\r\n\r\n")
+            Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
 route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
     | path == "/" = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
     | path == "/user-agent" = do

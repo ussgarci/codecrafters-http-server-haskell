@@ -23,7 +23,7 @@ data HttpRequest = HttpRequest
     , _target :: BC.ByteString
     , _version :: BC.ByteString
     , _headers :: [Header]
-    -- , _body :: Maybe BC.ByteString
+    , _body :: Maybe BC.ByteString
     }
     deriving (Show)
 
@@ -36,9 +36,6 @@ charCodesMap =
         , (':', fromIntegral (ord ':') :: Word8)
         , ('\r', fromIntegral (ord '\r') :: Word8)
         ]
-
-parseBody :: Parser BC.ByteString
-parseBody = undefined
 
 parseHeader :: Parser Header
 parseHeader = do
@@ -61,4 +58,8 @@ parseHttpRequest = do
     version <- MPB.string "HTTP/1.1"
     _ <- MPB.crlf
     headers <- MP.manyTill parseHeader MPB.crlf
-    return $ HttpRequest method target version headers
+    body <- MP.takeRest
+    if BC.null body then
+        return $ HttpRequest method target version headers Nothing
+    else
+        return $ HttpRequest method target version headers (Just body)
