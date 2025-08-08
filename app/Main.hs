@@ -9,41 +9,68 @@ import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
 import Parser.HttpRequest
 import System.Console.ANSI
-import System.IO (BufferMode (NoBuffering), hSetBuffering, stderr, stdout)
+import System.Directory
+import System.Environment
+import System.IO (BufferMode (NoBuffering), IOMode (ReadMode), hGetContents, hSetBuffering, openFile, stderr, stdout)
 import qualified Text.Megaparsec as MP
 
 route :: NS.Socket -> HttpRequest -> IO ()
-route socket (HttpRequest{_method = "GET", _target = "/"}) = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
-route socket (HttpRequest{_method = "GET", _target = "/user-agent", _headers = hs}) = do
-    let resp =
-            "HTTP/1.1 200 OK\r\n"
-                <> "Content-Type: text/plain\r\n"
-                <> "Content-Length: "
-                <> show (BC.length (_value (head uaHeader)))
-                <> "\r\n\r\n"
-                <> BC.unpack (_value (head uaHeader))
-          where
-            uaHeader = filter (\x -> _name x == "User-Agent") hs
-    sendAll socket (BC.pack resp)
-route socket (HttpRequest{_method = "GET", _target = path}) = case BC.stripPrefix "/echo/" path of
-    (Just str) ->
-        do
-            let resp =
-                    "HTTP/1.1 200 OK\r\n"
-                        <> "Content-Type: text/plain\r\n"
-                        <> "Content-Length: "
-                        <> show (BC.length str)
-                        <> "\r\n\r\n"
-                        <> BC.unpack str
-
-            setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
-            BC.putStrLn $ BC.pack (show resp)
-            sendAll socket (BC.pack resp)
-    Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+route socket (HttpRequest{_method = "GET", _target = path, _headers = hs})
+    | path == "/" = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
+    | path == "/user-agent" = do
+        let resp =
+                "HTTP/1.1 200 OK\r\n"
+                    <> "Content-Type: text/plain\r\n"
+                    <> "Content-Length: "
+                    <> show (BC.length (_value (head uaHeader)))
+                    <> "\r\n\r\n"
+                    <> BC.unpack (_value (head uaHeader))
+              where
+                uaHeader = filter (\x -> _name x == "User-Agent") hs
+        sendAll socket (BC.pack resp)
+    | BC.isPrefixOf "/echo/" path = do
+        case BC.stripPrefix "/echo/" path of
+            Just str -> do
+                let resp =
+                        "HTTP/1.1 200 OK\r\n"
+                            <> "Content-Type: text/plain\r\n"
+                            <> "Content-Length: "
+                            <> show (BC.length str)
+                            <> "\r\n\r\n"
+                            <> BC.unpack str
+                sendAll socket (BC.pack resp)
+            Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+    | BC.isPrefixOf "/files/" path = do
+        case BC.stripPrefix "/files/" path of
+            Just str -> do
+                let path = "/tmp/" ++ BC.unpack str
+                exists <- doesFileExist path
+                if exists
+                    then do
+                        handle <- openFile path ReadMode
+                        contents <- hGetContents handle
+                        let resp =
+                                "HTTP/1.1 200 OK\r\n"
+                                    <> "Content-Type: application/octet-stream\r\n"
+                                    <> "Content-Length: "
+                                    <> show (length contents)
+                                    <> "\r\n\r\n"
+                                    <> contents
+                        sendAll socket (BC.pack resp)
+                    else sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+            Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
 route socket _ = sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
 
 main :: IO ()
 main = do
+    args <- getArgs
+    let flags = zip args (drop 1 args)
+    let dir = lookup "--directory" flags
+
+    putStrLn "args:"
+    print args
+    print dir
+
     -- Disable output buffering
     hSetBuffering stdout NoBuffering
     hSetBuffering stderr NoBuffering
@@ -71,7 +98,7 @@ main = do
 
     forever $ do
         (clientSocket, clientAddr) <- NS.accept serverSocket
-        
+
         forkIO $ do
             request <- recv clientSocket 4096
             let requestLength = BC.length request
