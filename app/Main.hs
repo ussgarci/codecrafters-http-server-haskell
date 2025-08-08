@@ -44,6 +44,10 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
     | BC.isPrefixOf "/echo/" path = do
         case BC.stripPrefix "/echo/" path of
             Just str -> do
+                print filteredHeaders
+                print splitHeaders
+                print splitHeaders'
+                print valid
                 let resp =
                         "HTTP/1.1 200 OK\r\n"
                             <> "Content-Type: text/plain\r\n"
@@ -55,9 +59,11 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 sendAll socket (BC.pack resp)
               where
                 filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
-                valid = filter (`elem` validEncodings) $ BC.split ',' (_value $ head filteredHeaders)
+                splitHeaders = BC.split ',' (_value $ head filteredHeaders)
+                splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
+                valid = filter (`elem` validEncodings) splitHeaders'
                 contentEncodingStr =
-                    if not (null validEncodings)
+                    if not (null valid)
                         then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
                         else BC.unpack ""
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
