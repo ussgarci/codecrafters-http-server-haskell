@@ -63,7 +63,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
                 valid = filter (`elem` validEncodings) splitHeaders'
                 contentEncodingStr =
-                    if not (null valid)
+                    if not (null filteredHeaders) && not (null valid)
                         then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
                         else BC.unpack ""
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
