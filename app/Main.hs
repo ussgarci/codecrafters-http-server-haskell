@@ -59,7 +59,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 sendAll socket (BC.pack resp)
               where
                 filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
-                splitHeaders = BC.split ',' (_value $ head filteredHeaders)
+            splitHeaders = if not (null filteredHeaders) then BC.split ',' (_value $ head filteredHeaders) else []
                 splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
                 valid = filter (`elem` validEncodings) splitHeaders'
                 contentEncodingStr =
