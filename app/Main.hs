@@ -18,7 +18,7 @@ validEncodings :: [BC.ByteString]
 validEncodings = ["gzip"]
 
 route :: NS.Socket -> HttpRequest -> Maybe String -> IO ()
-route socket (HttpRequest{_method = "POST", _target = path, _headers = hs, _body=(Just fileContents)}) fp
+route socket (HttpRequest{_method = "POST", _target = path, _headers = hs, _body = (Just fileContents)}) fp
     | BC.isPrefixOf "/files/" path = do
         case BC.stripPrefix "/files/" path of
             Just fileName -> case fp of
@@ -52,17 +52,14 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                             <> show (BC.length str)
                             <> "\r\n\r\n"
                             <> BC.unpack str
-                print "RESPONSE where is the content-length header?"
-                print resp
                 sendAll socket (BC.pack resp)
-                where
-                    filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
-                    encodingType = _value $ head filteredHeaders
-                    contentEncodingStr = if not (null filteredHeaders) && (encodingType `elem` validEncodings) then
-                        BC.unpack ("Content-Encoding: " <> encodingType <> "\r\n")
-                        else
-                            BC.unpack ""
-
+              where
+                filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
+                valid = filter (`elem` validEncodings) $ BC.split ',' (_value $ head filteredHeaders)
+                contentEncodingStr =
+                    if not (null validEncodings)
+                        then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
+                        else BC.unpack ""
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
     | BC.isPrefixOf "/files/" path = do
         case BC.stripPrefix "/files/" path of

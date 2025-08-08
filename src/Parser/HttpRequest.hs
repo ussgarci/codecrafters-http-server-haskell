@@ -59,7 +59,6 @@ parseHttpRequest = do
     _ <- MPB.crlf
     headers <- MP.manyTill parseHeader MPB.crlf
     body <- MP.takeRest
-    if BC.null body then
-        return $ HttpRequest method target version headers Nothing
-    else
-        return $ HttpRequest method target version headers (Just body)
+    if BC.null body
+        then return $ HttpRequest method target version headers Nothing
+        else return $ HttpRequest method target version headers (Just body)
