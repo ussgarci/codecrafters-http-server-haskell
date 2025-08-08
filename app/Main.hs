@@ -15,6 +15,9 @@ import System.Environment
 import System.IO (BufferMode (NoBuffering), IOMode (ReadMode), hGetContents, hSetBuffering, openFile, stderr, stdout)
 import qualified Text.Megaparsec as MP
 
+validEncodings :: [BC.ByteString]
+validEncodings = ["gzip"]
+
 route :: NS.Socket -> HttpRequest -> Maybe String -> IO ()
 route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
     | path == "/" = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
@@ -35,11 +38,20 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 let resp =
                         "HTTP/1.1 200 OK\r\n"
                             <> "Content-Type: text/plain\r\n"
+                            <> show contentEncodingStr
                             <> "Content-Length: "
                             <> show (BC.length str)
                             <> "\r\n\r\n"
                             <> BC.unpack str
                 sendAll socket (BC.pack resp)
+                where
+                    filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
+                    encodingType = _value $ head filteredHeaders
+                    contentEncodingStr = if not (null filteredHeaders) && (encodingType `elem` validEncodings) then
+                        "Content-Encoding: " <> encodingType <> "\r\n"
+                        else
+                            ""
+
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
     | BC.isPrefixOf "/files/" path = do
         case BC.stripPrefix "/files/" path of
