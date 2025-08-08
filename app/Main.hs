@@ -3,8 +3,9 @@
 module Main (main) where
 
 import Control.Concurrent (forkIO)
-import Control.Monad (forever)
+import Control.Monad (forever, when)
 import qualified Data.ByteString.Char8 as BC
+import Data.Maybe (isNothing)
 import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
 import Parser.HttpRequest
@@ -14,8 +15,8 @@ import System.Environment
 import System.IO (BufferMode (NoBuffering), IOMode (ReadMode), hGetContents, hSetBuffering, openFile, stderr, stdout)
 import qualified Text.Megaparsec as MP
 
-route :: NS.Socket -> HttpRequest -> IO ()
-route socket (HttpRequest{_method = "GET", _target = path, _headers = hs})
+route :: NS.Socket -> HttpRequest -> Maybe String -> IO ()
+route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
     | path == "/" = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
     | path == "/user-agent" = do
         let resp =
@@ -42,24 +43,26 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs})
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
     | BC.isPrefixOf "/files/" path = do
         case BC.stripPrefix "/files/" path of
-            Just str -> do
-                let path = "/tmp/" ++ BC.unpack str
-                exists <- doesFileExist path
-                if exists
-                    then do
-                        handle <- openFile path ReadMode
-                        contents <- hGetContents handle
-                        let resp =
-                                "HTTP/1.1 200 OK\r\n"
-                                    <> "Content-Type: application/octet-stream\r\n"
-                                    <> "Content-Length: "
-                                    <> show (length contents)
-                                    <> "\r\n\r\n"
-                                    <> contents
-                        sendAll socket (BC.pack resp)
-                    else sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+            Just str -> case fp of
+                Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+                Just pathStr -> do
+                    let filePath = pathStr ++ BC.unpack str
+                    exists <- doesFileExist filePath
+                    if exists
+                        then do
+                            handle <- openFile filePath ReadMode
+                            contents <- hGetContents handle
+                            let resp =
+                                    "HTTP/1.1 200 OK\r\n"
+                                        <> "Content-Type: application/octet-stream\r\n"
+                                        <> "Content-Length: "
+                                        <> show (length contents)
+                                        <> "\r\n\r\n"
+                                        <> contents
+                            sendAll socket (BC.pack resp)
+                        else sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
-route socket _ = sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
+route socket _ fp = sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
 
 main :: IO ()
 main = do
@@ -109,7 +112,7 @@ main = do
             setSGR [Reset]
 
             case MP.runParser parseHttpRequest "" request of
-                Right httpRequest -> route clientSocket httpRequest
+                Right httpRequest -> route clientSocket httpRequest dir
                 Left errorBundle -> print errorBundle
 
             NS.close clientSocket
