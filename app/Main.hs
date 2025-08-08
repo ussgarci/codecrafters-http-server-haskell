@@ -47,19 +47,21 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 let resp =
                         "HTTP/1.1 200 OK\r\n"
                             <> "Content-Type: text/plain\r\n"
-                            <> show contentEncodingStr
+                            <> contentEncodingStr
                             <> "Content-Length: "
                             <> show (BC.length str)
                             <> "\r\n\r\n"
                             <> BC.unpack str
+                print "RESPONSE where is the content-length header?"
+                print resp
                 sendAll socket (BC.pack resp)
                 where
                     filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
                     encodingType = _value $ head filteredHeaders
                     contentEncodingStr = if not (null filteredHeaders) && (encodingType `elem` validEncodings) then
-                        "Content-Encoding: " <> encodingType <> "\r\n"
+                        BC.unpack ("Content-Encoding: " <> encodingType <> "\r\n")
                         else
-                            ""
+                            BC.unpack ""
 
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
     | BC.isPrefixOf "/files/" path = do
