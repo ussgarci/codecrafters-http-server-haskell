@@ -56,7 +56,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                             <> "Content-Type: text/plain\r\n"
                             <> contentEncodingStr
                             <> "Content-Length: "
-                            <> show (BC.length str)
+                            <> show contentLength
                             <> "\r\n\r\n"
                             <> BC.unpack body
                 sendAll socket (BC.pack resp)
@@ -65,6 +65,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 splitHeaders = if not (null filteredHeaders) then BC.split ',' (_value $ head filteredHeaders) else []
                 splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
                 valid = filter (`elem` validEncodings) splitHeaders'
+                contentLength = BC.length body
                 contentEncodingStr =
                     if not (null filteredHeaders) && not (null valid)
                         then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
