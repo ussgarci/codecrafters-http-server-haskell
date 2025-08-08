@@ -2,9 +2,12 @@
 
 module Main (main) where
 
+import qualified Codec.Compression.GZip as GZip (compress)
 import Control.Concurrent (forkIO)
 import Control.Monad (forever)
+import qualified Data.ByteString.Builder as BCL
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy as BCL
 import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
 import Parser.HttpRequest
@@ -55,7 +58,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                             <> "Content-Length: "
                             <> show (BC.length str)
                             <> "\r\n\r\n"
-                            <> BC.unpack str
+                            <> BC.unpack body
                 sendAll socket (BC.pack resp)
               where
                 filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
@@ -66,6 +69,10 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                     if not (null filteredHeaders) && not (null valid)
                         then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
                         else BC.unpack ""
+                body =
+                    if null contentEncodingStr
+                        then str
+                        else BCL.toStrict $ GZip.compress (BCL.fromStrict str)
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
     | BC.isPrefixOf "/files/" path = do
         case BC.stripPrefix "/files/" path of
