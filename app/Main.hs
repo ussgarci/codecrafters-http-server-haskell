@@ -133,25 +133,27 @@ main = do
     forever $ do
         (clientSocket, clientAddr) <- NS.accept serverSocket
 
-        forkIO 
-            (forever $ do
+        forkIO
+            ( forever $ do
                 request <- recv clientSocket 4096
                 let requestLength = BC.length request
-                
-                if not (BC.null request) 
-                then
-                    do
+
+                if not (BC.null request)
+                    then do
                         BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
                         setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
                         BC.putStrLn $ BC.pack (show request)
                         setSGR [Reset]
                         case MP.runParser parseHttpRequest "" request of
-                            Right httpRequest -> route clientSocket httpRequest dir
-                            Left errorBundle -> print errorBundle
-                else
-                    do
-                        NS.close clientSocket
+                            Right httpRequest -> do
+                                if isHeaderValuePresent httpRequest "Connection" "close"
+                                    then do
+                                        route clientSocket httpRequest dir
+                                        NS.close clientSocket
+                                    else route clientSocket httpRequest dir
+                            Left errorBundle ->
+                                do
+                                    putStrLn "Failed to parse HTTP request."
+                                    print errorBundle
+                    else NS.close clientSocket
             )
-
-            -- Is the test going to send a `Connection: close` header?
-            -- NS.close clientSocket

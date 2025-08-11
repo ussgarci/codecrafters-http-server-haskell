@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parser.HttpRequest (HttpRequest (..), Header (..), parseHttpRequest)
+module Parser.HttpRequest (HttpRequest (..), Header (..), parseHttpRequest, isHeaderPresent, isHeaderValuePresent)
 where
 
 import qualified Data.ByteString as B
@@ -26,6 +26,17 @@ data HttpRequest = HttpRequest
     , _body :: Maybe BC.ByteString
     }
     deriving (Show)
+
+type HeaderName = BC.ByteString
+type HeaderValue = BC.ByteString
+
+isHeaderPresent :: HttpRequest -> HeaderName -> Bool
+isHeaderPresent (HttpRequest{_headers = []}) _ = False
+isHeaderPresent (HttpRequest{_headers = hs}) headerName = any (\x -> _name x == headerName) hs
+
+isHeaderValuePresent :: HttpRequest -> HeaderName -> HeaderValue -> Bool
+isHeaderValuePresent (HttpRequest{_headers = []}) _ _ = False
+isHeaderValuePresent (HttpRequest{_headers = hs}) headerName headerValue = any (\x -> _name x == headerName && _value x == headerValue) hs
 
 type Parser = MP.Parsec Void BC.ByteString
 
