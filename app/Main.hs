@@ -46,7 +46,7 @@ route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs
                 uaHeader = filter (\x -> _name x == "User-Agent") hs
                 connectionStr =
                     if isHeaderValuePresent request "Connection" "close"
-                        then BC.unpack "Content-Encoding: close\r\n"
+                        then BC.unpack "Connection: close\r\n"
                         else BC.unpack ""
         sendAll socket (BC.pack resp)
     | BC.isPrefixOf "/echo/" path = do
