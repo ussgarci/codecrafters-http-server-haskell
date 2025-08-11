@@ -149,4 +149,5 @@ main = do
                 Right httpRequest -> route clientSocket httpRequest dir
                 Left errorBundle -> print errorBundle
 
-            NS.close clientSocket
+            -- Is the test going to send a `Connection: close` header?
+            -- NS.close clientSocket
