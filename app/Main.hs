@@ -52,10 +52,10 @@ route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs
     | BC.isPrefixOf "/echo/" path = do
         case BC.stripPrefix "/echo/" path of
             Just str -> do
-                print filteredHeaders
-                print splitHeaders
-                print splitHeaders'
-                print valid
+                -- print filteredHeaders
+                -- print splitHeaders
+                -- print splitHeaders'
+                -- print valid
                 let resp =
                         "HTTP/1.1 200 OK\r\n"
                             <> "Content-Type: text/plain\r\n"
@@ -74,7 +74,7 @@ route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs
                 contentLength = BC.length body
                 connectionStr =
                     if isHeaderValuePresent request "Connection" "close"
-                        then BC.unpack "Content-Encoding: close\r\n"
+                        then BC.unpack "Connection: close\r\n"
                         else BC.unpack ""
                 contentEncodingStr =
                     if not (null filteredHeaders) && not (null valid)
