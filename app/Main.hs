@@ -31,18 +31,23 @@ route socket (HttpRequest{_method = "POST", _target = path, _headers = hs, _body
                     writeFile filePath $ BC.unpack fileContents
                     sendAll socket (BC.pack "HTTP/1.1 201 Created\r\n\r\n")
             Nothing -> sendAll socket (BC.pack "HTTP/1.1 404 Not Found\r\n\r\n")
-route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
+route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
     | path == "/" = sendAll socket (BC.pack "HTTP/1.1 200 OK\r\n\r\n")
     | path == "/user-agent" = do
         let resp =
                 "HTTP/1.1 200 OK\r\n"
                     <> "Content-Type: text/plain\r\n"
+                    <> connectionStr
                     <> "Content-Length: "
                     <> show (BC.length (_value (head uaHeader)))
                     <> "\r\n\r\n"
                     <> BC.unpack (_value (head uaHeader))
               where
                 uaHeader = filter (\x -> _name x == "User-Agent") hs
+                connectionStr =
+                    if isHeaderValuePresent request "Connection" "close"
+                        then BC.unpack "Content-Encoding: close\r\n"
+                        else BC.unpack ""
         sendAll socket (BC.pack resp)
     | BC.isPrefixOf "/echo/" path = do
         case BC.stripPrefix "/echo/" path of
@@ -55,6 +60,7 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                         "HTTP/1.1 200 OK\r\n"
                             <> "Content-Type: text/plain\r\n"
                             <> contentEncodingStr
+                            <> connectionStr
                             <> "Content-Length: "
                             <> show contentLength
                             <> "\r\n\r\n"
@@ -66,6 +72,10 @@ route socket (HttpRequest{_method = "GET", _target = path, _headers = hs}) fp
                 splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
                 valid = filter (`elem` validEncodings) splitHeaders'
                 contentLength = BC.length body
+                connectionStr =
+                    if isHeaderValuePresent request "Connection" "close"
+                        then BC.unpack "Content-Encoding: close\r\n"
+                        else BC.unpack ""
                 contentEncodingStr =
                     if not (null filteredHeaders) && not (null valid)
                         then BC.unpack ("Content-Encoding: " <> head valid <> "\r\n")
