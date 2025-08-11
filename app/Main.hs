@@ -112,9 +112,6 @@ main = do
     hSetBuffering stdout NoBuffering
     hSetBuffering stderr NoBuffering
 
-    -- You can use print statements as follows for debugging, they'll be visible when running tests.
-    BC.putStrLn "Logs from your program will appear here"
-
     -- Uncomment this block to pass first stage
     let host = "127.0.0.1"
         port = "4221"
@@ -136,18 +133,25 @@ main = do
     forever $ do
         (clientSocket, clientAddr) <- NS.accept serverSocket
 
-        forkIO $ do
-            request <- recv clientSocket 4096
-            let requestLength = BC.length request
-
-            BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
-            setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
-            BC.putStrLn $ BC.pack (show request)
-            setSGR [Reset]
-
-            case MP.runParser parseHttpRequest "" request of
-                Right httpRequest -> route clientSocket httpRequest dir
-                Left errorBundle -> print errorBundle
+        forkIO 
+            (forever $ do
+                request <- recv clientSocket 4096
+                let requestLength = BC.length request
+                
+                if not (BC.null request) 
+                then
+                    do
+                        BC.putStrLn $ "Received " <> BC.pack (show requestLength) <> " bytes from " <> BC.pack (show clientAddr) <> "."
+                        setSGR [SetColor Foreground Dull Green, SetConsoleIntensity BoldIntensity]
+                        BC.putStrLn $ BC.pack (show request)
+                        setSGR [Reset]
+                        case MP.runParser parseHttpRequest "" request of
+                            Right httpRequest -> route clientSocket httpRequest dir
+                            Left errorBundle -> print errorBundle
+                else
+                    do
+                        NS.close clientSocket
+            )
 
             -- Is the test going to send a `Connection: close` header?
             -- NS.close clientSocket
