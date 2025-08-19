@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Parser.HttpRequest (HttpRequest (..), Header (..), parseHttpRequest, isHeaderPresent, isHeaderValuePresent)
+module Parser.HttpRequest (parseHttpRequest)
 where
 
 import qualified Data.ByteString as B
@@ -9,34 +9,9 @@ import Data.Char (ord)
 import qualified Data.Map as M
 import Data.Void (Void)
 import Data.Word (Word8)
+import Http.Types
 import qualified Text.Megaparsec as MP
 import qualified Text.Megaparsec.Byte as MPB
-
-data Header = Header
-    { _name :: BC.ByteString
-    , _value :: BC.ByteString
-    }
-    deriving (Show)
-
-data HttpRequest = HttpRequest
-    { _method :: BC.ByteString
-    , _target :: BC.ByteString
-    , _version :: BC.ByteString
-    , _headers :: [Header]
-    , _body :: Maybe BC.ByteString
-    }
-    deriving (Show)
-
-type HeaderName = BC.ByteString
-type HeaderValue = BC.ByteString
-
-isHeaderPresent :: HttpRequest -> HeaderName -> Bool
-isHeaderPresent (HttpRequest{_headers = []}) _ = False
-isHeaderPresent (HttpRequest{_headers = hs}) headerName = any (\x -> _name x == headerName) hs
-
-isHeaderValuePresent :: HttpRequest -> HeaderName -> HeaderValue -> Bool
-isHeaderValuePresent (HttpRequest{_headers = []}) _ _ = False
-isHeaderValuePresent (HttpRequest{_headers = hs}) headerName headerValue = any (\x -> _name x == headerName && _value x == headerValue) hs
 
 type Parser = MP.Parsec Void BC.ByteString
 
@@ -48,14 +23,14 @@ charCodesMap =
         , ('\r', fromIntegral (ord '\r') :: Word8)
         ]
 
-parseHeader :: Parser Header
+parseHeader :: Parser (HeaderName, HeaderValue)
 parseHeader = do
     name <- MP.takeWhile1P (Just "http header name") (/= (charCodesMap M.! ':'))
     _ <- MPB.char (charCodesMap M.! ':')
     _ <- MPB.space
     value <- MP.takeWhile1P (Just "http header value") (/= (charCodesMap M.! '\r'))
     _ <- MPB.crlf
-    return $ Header name value
+    return $ (name, value)
 
 parseHttpRequest :: Parser HttpRequest
 parseHttpRequest = do

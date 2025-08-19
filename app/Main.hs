@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main (main) where
@@ -8,6 +9,7 @@ import Control.Monad (forever)
 import qualified Data.ByteString.Builder as BCL
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as BCL
+import Http.Types
 import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
 import Parser.HttpRequest
@@ -39,11 +41,11 @@ route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs
                     <> "Content-Type: text/plain\r\n"
                     <> connectionStr
                     <> "Content-Length: "
-                    <> show (BC.length (_value (head uaHeader)))
+                    <> show (BC.length (snd (head uaHeader)))
                     <> "\r\n\r\n"
-                    <> BC.unpack (_value (head uaHeader))
+                    <> BC.unpack (snd (head uaHeader))
               where
-                uaHeader = filter (\x -> _name x == "User-Agent") hs
+                uaHeader = filter (\x -> fst x == "User-Agent") hs
                 connectionStr =
                     if isHeaderValuePresent request "Connection" "close"
                         then BC.unpack "Connection: close\r\n"
@@ -67,8 +69,8 @@ route socket request@(HttpRequest{_method = "GET", _target = path, _headers = hs
                             <> BC.unpack body
                 sendAll socket (BC.pack resp)
               where
-                filteredHeaders = filter (\x -> _name x == "Accept-Encoding") hs
-                splitHeaders = if not (null filteredHeaders) then BC.split ',' (_value $ head filteredHeaders) else []
+                filteredHeaders = filter (\x -> fst x == "Accept-Encoding") hs
+                splitHeaders = if not (null filteredHeaders) then BC.split ',' (snd $ head filteredHeaders) else []
                 splitHeaders' = map (BC.filter (/= ' ')) splitHeaders
                 valid = filter (`elem` validEncodings) splitHeaders'
                 contentLength = BC.length body
