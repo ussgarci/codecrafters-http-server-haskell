@@ -1,15 +1,21 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Http.Types (HttpRequest (..), HttpResponse (..), HeaderName, HeaderValue, isHeaderPresent, isHeaderValuePresent)
+module Http.Types (HttpRequest (..), HttpResponse (..), Config (..), ConnectionState (..), HeaderName, HeaderValue, isHeaderPresent, isHeaderValuePresent)
 where
 
 import qualified Data.ByteString.Char8 as BC
+import Data.Time.Clock
 
--- data Header = Header
---    { _name :: BC.ByteString
---    , _value :: BC.ByteString
---    }
---    deriving (Show)
+data Config = Config
+    { directory :: FilePath
+    }
+    deriving (Show)
+
+data ConnectionState = ConnectionState
+    { requestsHandled :: Int
+    , connectionOpened :: UTCTime
+    }
+    deriving (Show)
 
 data HttpRequest = HttpRequest
     { _method :: BC.ByteString
@@ -20,11 +26,11 @@ data HttpRequest = HttpRequest
     }
     deriving (Show)
 
-data HttpResponse = Response
+data HttpResponse = HttpResponse
     { _statusCode :: Int
     , _statusText :: BC.ByteString
     , _headers :: [(BC.ByteString, BC.ByteString)]
-    , _body :: BC.ByteString
+    , _body :: Maybe BC.ByteString
     }
 
 type HeaderName = BC.ByteString

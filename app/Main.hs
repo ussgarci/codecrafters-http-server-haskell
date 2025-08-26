@@ -9,6 +9,7 @@ import Control.Monad (forever)
 import qualified Data.ByteString.Builder as BCL
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy as BCL
+import qualified Http.Router as R
 import Http.Types
 import qualified Network.Socket as NS
 import Network.Socket.ByteString (recv, sendAll)
